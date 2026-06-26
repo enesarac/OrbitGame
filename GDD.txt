@@ -1,0 +1,524 @@
+GAME DESIGN DOCUMENT (GDD)
+
+Proje Adi: Orbit
+Eski Calisma Adi: Orbital Gravity
+Tur: Minimalist mobil arcade / hyper-casual refleks oyunu
+Platform: Android oncelikli, iOS uyumlu mimari
+Motor: Flutter + Flame Engine
+Hedef Oturum Suresi: 30 saniye - 3 dakika
+Hedef FPS: 60 FPS
+Versiyon Kapsami: MVP + shop, economy, dual orbit ve polish sistemleri
+
+
+1. High Concept
+
+Orbit, oyuncunun tek dokunusla bir veya iki gezegenin merkezdeki kozmik cekirdek etrafindaki yorungesini kontrol ettigi refleks odakli bir mobil arcade oyunudur.
+
+Oyuncu ekrana bastiginda yorunge daralir, parmagini kaldirdiginda yorunge genisler. Oyuncu asteroitlerden kacmali, gunes cekirdegine dusmemeli, coin toplamali ve daha yuksek skora ulasmalidir. 100 skordan sonra oyun Dual Orbit fazina gecer ve oyuncu ayni anda birbirine zit konumda donen iki gezegeni kontrol eder.
+
+
+2. Tasarim Hedefleri
+
+- Tek parmakla anlasilir, ancak ustalasmasi zor bir kontrol hissi.
+- Minimalist, neon, okunabilir ve mobil ekranda net gorsel dil.
+- Ilk saniyeden itibaren aktif oyuncu katilimi: bos birakinca gunes cekimi oyuncuyu merkeze dogru ceker.
+- Baslangicta cok kolay, zamanla kademeli zorlasan denge.
+- 100 skor sonrasi yeni bir oyun fazi: Dual Orbit.
+- Shop sistemi ile uzun vadeli kozmetik hedefler.
+- Core loop'u bozmayan sade ekonomi ve kalici kayit sistemi.
+- Fiziksel Android telefonda akici release performansi.
+
+
+3. Tech Stack
+
+- Framework: Flutter
+- Game Engine: Flame ^1.35.1
+- Audio: flame_audio ^2.11.14
+- Persistence: shared_preferences ^2.5.5
+- State Management: Flame game class state + basit Flutter overlay state
+- Harici agir state management paketi yok.
+
+Ana dosya yapisi:
+
+- lib/main.dart
+  Flutter entry point, GameWidget ve overlay kayitlari.
+
+- lib/game/orbital_gravity_game.dart
+  Ana Flame game class. Orbit, spawn, skor, coin, shop state, persistence, dual orbit ve game over akisini yonetir.
+
+- lib/game/config/game_constants.dart
+  Oynanis, denge ve renk sabitleri.
+
+- lib/game/components/player_component.dart
+  Oyuncu gezegeni, collision, trail ve shield render.
+
+- lib/game/components/sun_component.dart
+  Merkez kozmik cekirdek/gunes ve sun skin render.
+
+- lib/game/components/asteroid_component.dart
+  Tehlikeli asteroitler, kirmizi trail ve merkeze hareket.
+
+- lib/game/components/coin_component.dart
+  Toplanabilir coin, hitbox, spin/fade animasyonu.
+
+- lib/game/components/score_text_component.dart
+  Oyun ici skor metni.
+
+- lib/game/shop/shop_item.dart
+  Shop katalog verisi.
+
+- lib/game/shop/shop_data_store.dart
+  SharedPreferences kayit/yukleme katmani.
+
+- lib/ui/
+  Main menu, game over ve advanced shop overlay widget'lari.
+
+
+4. Core Gameplay Loop
+
+1. Oyuncu Main Menu'den oyunu baslatir.
+2. Gezegen merkezdeki gunes etrafinda otomatik doner.
+3. Oyuncu dokunarak yorunge yari capini daraltir.
+4. Oyuncu birakarak yorunge yari capinin genislemesine izin verir.
+5. Dokunulmadiginda gunes cekimi oyuncuyu yavasca merkeze ceker.
+6. Asteroitler ekran disindan merkeze dogru akar.
+7. Oyuncu asteroitlerden kacar, coin toplar ve hayatta kalir.
+8. Her saniye skor artar; merkeze ulasan asteroitlerden ekstra dodge skoru gelir.
+9. 100 skorda Dual Orbit aktif olur.
+10. Asteroide carpma veya gunes cekirdegine dusme game over tetikler.
+11. Game Over ekraninda skor, high score, restart ve shop erisimi sunulur.
+
+
+5. Kontroller
+
+Kontrol tipi: Tek parmak basili tutma / birakma.
+
+- Touch Down / Hold:
+  Hedef yorunge yari capi minimum degere iner.
+
+- Touch Up:
+  Hedef yorunge yari capi maksimum degere cikar.
+
+- No Touch:
+  Hedef yari cap, gunes cekimi nedeniyle yavasca merkeze dogru azalir.
+
+Yorunge matematik modeli:
+
+  x = sun.x + currentRadius * cos(angle)
+  y = sun.y + currentRadius * sin(angle)
+
+Yari cap gecisi LERP ile yumusatilir:
+
+  currentRadius = lerp(currentRadius, targetRadius, radiusLerpSpeed * dt)
+
+
+6. Oynanis Sabitleri
+
+Mevcut implementasyondaki ana denge degerleri:
+
+- Sun radius: 34 px
+- Player radius: 10 px
+- Minimum orbit radius: 60 px
+- Maximum orbit radius: 200 px
+- Orbit speed: 1.8 rad/s
+- Radius lerp speed: 8
+- Sun collision radius: 40 px
+- Very easy idle gravity: 8 px/s
+- Default idle gravity: 16 px/s
+
+Asteroit:
+
+- Radius araligi: 8 - 18 px
+- Spawn padding: 32 px
+- Very easy spawn interval: 3.0 s
+- Easy spawn interval: 2.0 s
+- Hard base spawn interval: 1.8 s
+- Minimum spawn interval: 0.9 s
+- Very easy speed: 60 px/s
+- Easy speed: 80 px/s
+- Maximum hard speed: 180 px/s
+- Merkeze ulasinca dodge bonus: +5 score
+- Trail nokta sayisi: 10
+- Asteroit rengi: #FF4D3D
+
+Coin:
+
+- Coin radius: 9 px
+- Spawn interval: 5 s
+- Maksimum aktif coin: 3
+- Coin degeri: +5 totalCoins
+- Coin rengi: #FFD700
+
+
+7. Skor Sistemi
+
+Skor iki kaynaktan gelir:
+
+- Time Score:
+  Hayatta kalinan her 1 saniye icin +1 score.
+
+- Dodge Score:
+  Bir asteroit oyuncuya carpmadan merkeze ulasip silinirse +5 score.
+
+High Score:
+
+- Game over aninda mevcut skor high score'dan yuksekse kaydedilir.
+- Game Over ekraninda final score ve high score gosterilir.
+
+
+8. Zorluk Egrisi
+
+Oyun baslangici bilincli olarak cok kolaydir.
+
+Single Orbit fazi:
+
+- Score < 15:
+  Spawn interval 3.0 s, asteroid speed 60 px/s, gunes cekimi cok zayif.
+
+- Score 15 - 40:
+  Spawn interval 2.0 s, asteroid speed 80 px/s.
+
+- Score > 40:
+  Spawn interval = max(0.9, 1.8 - score * 0.005)
+  Asteroid speed = min(180, 80 + score * 0.5)
+
+Dual Orbit fazi:
+
+- Esik: score >= 100
+- Ikinci oyuncu ilk oyuncunun tam zit acisinda dogar.
+- Asteroit zorlugu score 0 seviyesine resetlenir.
+- 2 saniye asteroid spawn duraklamasi verilir.
+- Dual faz sonrasi zorluk iki kat yavas artar:
+  effectiveDifficulty = (score - 100) * 0.5
+
+
+9. Dual Orbit Sistemi
+
+Dual Orbit, 100 skorda tek seferlik aktif olur.
+
+Davranis:
+
+- Player2, Player1 acisi + pi konumunda dogar.
+- Iki oyuncu ayni currentRadius degerini kullanir.
+- Touch input iki oyuncuyu mutlak senkron hareket ettirir.
+- Iki oyuncudan herhangi biri asteroide carparsa game over veya shield kullanimi tetiklenir.
+- Iki oyuncudan herhangi biri sun collision radius seviyesine duserse game over olur.
+
+Invisible helper:
+
+- Dual Orbit aninda iki oyuncunun hitbox radius'u %45 kuculur.
+- Dual Orbit baslarken 3 saniye invincibility verilir.
+- Bu surede asteroid collision yok sayilir.
+- Amac: Iki gezegeni yonetmenin bilissel yukunu dengelemek.
+
+Bildirim:
+
+- "DUAL ORBIT ENGAGED - GET READY!" metni 2 saniye gosterilir.
+
+
+10. Collision Kurallari
+
+Oyuncu - Asteroit:
+
+- Shield aktif degilse game over.
+- Shield aktifse:
+  - Shield tuketilir.
+  - Asteroit yok edilir.
+  - 1 saniye invincibility verilir.
+  - Oyun devam eder.
+
+Oyuncu - Coin:
+
+- Coin toplanir.
+- totalCoins +5 artar.
+- coin.mp3 calinir.
+- Coin fade-out ile silinir.
+- Game state kaydedilir.
+
+Oyuncu - Sun:
+
+- currentRadius <= 40 oldugunda game over.
+
+Asteroit - Sun / Merkez:
+
+- Asteroit merkeze yeterince yaklasinca silinir.
+- Oyuncuya carpmadan merkeze ulasmissa +5 dodge score verir.
+
+
+11. Economy ve Persistence
+
+Kalici tutulan veriler:
+
+- totalCoins
+- highScore
+- selectedPlayerColor
+- selectedTheme
+- selectedTrail
+- selectedSunSkin
+- hasShieldPurchased
+- unlockedItems
+
+Kayit sistemi:
+
+- shared_preferences kullanilir.
+- loadGameState(), game onLoad icinde calisir.
+- saveGameState() sadece su olaylarda calisir:
+  - Coin toplandiginda
+  - Shop'ta item satin alindiginda veya equip edildiginde
+  - Shield tuketildiginde
+  - Game over aninda
+- update(dt) icinde kayit islemi yapilmaz.
+
+Default unlock:
+
+- ball_cyan
+- theme_deep_black
+- trail_cyan
+- sun_standard
+
+
+12. Shop Sistemi
+
+Shop, Flutter overlay olarak calisir. Main Menu ve Game Over ekranlarindan acilabilir.
+
+Shop sunumu:
+
+- Koyu, modern, semi-transparent panel.
+- Kategori kartlari ile secim.
+- Kategori secildikten sonra item kartlari grid halinde gosterilir.
+- Buton durumlari:
+  - BUY: Kilitli ve yeterli coin varsa.
+  - Disabled BUY: Kilitli ama coin yetmiyorsa.
+  - EQUIP: Satin alinmis ama aktif degilse.
+  - ACTIVE / EQUIPPED: Secili item.
+  - READY: Energy Shield satin alinmis ve sonraki run icin hazirsa.
+
+Shop kategorileri ve itemler:
+
+Orbit Colors:
+
+- Neon Cyan
+  - ID: ball_cyan
+  - Cost: 0
+  - Color: #45A29E
+
+- Neon Green
+  - ID: ball_green
+  - Cost: 50
+  - Color: #39FF14
+
+- Neon Purple
+  - ID: ball_purple
+  - Cost: 100
+  - Color: #B026FF
+
+Backgrounds:
+
+- Deep Cosmic Black
+  - ID: theme_deep_black
+  - Cost: 0
+  - Background: #0B0C10
+
+- Starry Space
+  - ID: theme_starry_space
+  - Cost: 100
+  - Background: deep black + static cached stars
+
+- Cyberpunk Grid
+  - ID: theme_cyber_grid
+  - Cost: 150
+  - Background: #151820 + grid lines
+
+Skills:
+
+- Energy Shield
+  - ID: skill_energy_shield
+  - Cost: 200
+  - Consumable, next run icin tek kullanimlik koruma.
+
+Trails:
+
+- Neon Cyan
+  - ID: trail_cyan
+  - Cost: 0
+
+- Rainbow Trail
+  - ID: trail_rainbow
+  - Cost: 150
+  - Trail rengi HSV/rainbow olarak zamanla degisir.
+
+- Star Dust Trail
+  - ID: trail_star_dust
+  - Cost: 250
+  - Trail daire yerine kucuk yildiz/parilti sekilleri cizer.
+
+Cosmic Cores:
+
+- Standard Core
+  - ID: sun_standard
+  - Cost: 0
+
+- Black Hole Core
+  - ID: sun_black_hole
+  - Cost: 300
+  - Donen vortex/arc gorseli.
+
+- Cyber Pulsar
+  - ID: sun_cyber_pulsar
+  - Cost: 400
+  - Konsantrik ring ve tech-grid hissi.
+
+
+13. UI Overlays
+
+MainMenu:
+
+- Oyun basligi: ORBIT
+- START GAME butonu
+- SHOP butonu
+
+GameOver:
+
+- GAME OVER basligi
+- Final Score
+- High Score
+- TRY AGAIN butonu
+- SHOP butonu
+
+AdvancedShop:
+
+- Coin bakiyesi
+- Kategori kartlari
+- Item grid'i
+- Back butonu
+
+Oyun ici HUD:
+
+- Score text top-center konumda.
+- Font buyuklugu 32.
+- Renk beyaz/cyan okunabilirlik odakli.
+
+
+14. Gorsel Stil
+
+Genel sanat yonu:
+
+- Minimalist neon arcade.
+- Koyu uzay arka plani.
+- Net geometrik formlar.
+- Kucuk ekranda hizli okunabilirlik.
+
+Renk paleti:
+
+- Background default: #0B0C10
+- Player default: #45A29E
+- Asteroid: #FF4D3D
+- Coin: #FFD700
+- Sun default: #FFD166
+- Score text: #FFFFFF
+
+Trail sistemleri:
+
+- Player trail:
+  - 6 nokta.
+  - Yaslandikca daha transparan.
+  - Secili trail item'ina gore cyan/rainbow/star dust.
+
+- Asteroid trail:
+  - 10 nokta.
+  - Oyuncu trail'iyle ayni dairesel fading mantik.
+  - Sabit asteroid kirmizisi.
+  - Tehlikeli oldugunu yeni oyunculara anlatmak icin kullanilir.
+
+Theme render:
+
+- Starry Space:
+  - Yildiz koordinatlari render icinde uretilmez.
+  - Resize/init sirasinda statik liste olarak hazirlanir.
+
+- Cyberpunk Grid:
+  - Koyu gri zemin uzerinde dusuk opaklikli grid.
+
+
+15. Audio
+
+Audio assets:
+
+- assets/audio/tap.mp3
+- assets/audio/coin.mp3
+- assets/audio/explosion.mp3
+
+Tetikler:
+
+- Tap sound:
+  Oyuncu ekrana bastigi anda calar.
+
+- Coin sound:
+  Coin toplandiginda calar.
+
+- Explosion sound:
+  Game over tetiklendiginde calar.
+
+Not:
+
+- Audio sistemi sade tutulur.
+- Surekli muzik yoktur; temiz ve dikkat dagitmayan feedback hedeflenir.
+
+
+16. Performance Notlari
+
+Mobil hedef: 60 FPS.
+
+Alinan onlemler:
+
+- Trail listeleri sabit uzunlukta tutulur.
+- Player trail max 6.
+- Asteroid trail max 10.
+- Asteroit ve coin silinirken hitbox collision tree'den ayrilir.
+- Coin ve asteroid cleanup agresiftir.
+- Starry Space yildizlari render sirasinda random uretilmez.
+- SharedPreferences save islemleri update loop icinde yapilmaz.
+- Release build APK ile fiziksel cihaz testine hazirlanir.
+
+
+17. Build ve Dagitim
+
+Android gorunen uygulama adi: Orbit
+Launcher icon: assets/icon.png kaynak alinarak Android mipmap ikonlari uretilir.
+
+Release APK yolu:
+
+  build/app/outputs/flutter-apk/app-release.apk
+
+Dogulama komutlari:
+
+  flutter analyze
+  flutter test
+  flutter build apk --release
+
+
+18. Bilinen Sinirlar ve Gelecek Iyilestirmeler
+
+MVP disi kalabilecek iyilestirmeler:
+
+- Daha fazla asteroid tipi.
+- Farkli coin degerleri veya combo sistemi.
+- Haptic feedback.
+- Leaderboard entegrasyonu.
+- Daha gelismis tutorial/onboarding.
+- Shop item preview animasyonlari.
+- Android App Bundle cikisi.
+- iOS release pipeline.
+
+
+19. Basari Kriterleri
+
+Oyun bu kosullari sagladiginda MVP basarili kabul edilir:
+
+- Oyuncu ilk 5 saniyede kontrol mantigini anlar.
+- Asteroidlerin tehlikeli oldugu kirmizi renk ve trail ile okunur.
+- Coin toplama ve shop ekonomisi kalici kaydolur.
+- 100 skor sonrasi Dual Orbit fazi adil ve oynanabilir hissedilir.
+- Restart shop/coin state'ini sifirlamaz.
+- Release APK fiziksel Android telefonda akici calisir.
+- UI metinleri kucuk ekranda tasmaz.
