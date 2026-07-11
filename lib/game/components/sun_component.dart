@@ -10,11 +10,11 @@ import '../orbital_gravity_game.dart';
 final class SunComponent extends CircleComponent
     with HasGameReference<OrbitalGravityGame> {
   SunComponent()
-      : super(
-          radius: GameConstants.sunRadius,
-          anchor: Anchor.center,
-          paint: Paint()..color = GameConstants.sunColor,
-        );
+    : super(
+        radius: GameConstants.sunRadius,
+        anchor: Anchor.center,
+        paint: Paint()..color = GameConstants.sunColor,
+      );
 
   double _skinAngle = 0;
   final Paint _skinPaint = Paint();
@@ -57,8 +57,7 @@ final class SunComponent extends CircleComponent
         const Color(0xFF6C4DFF),
         const Color(0xFF66FCF1),
         const Color(0xFFFF4DFF),
-      ][i]
-          .withAlpha(190);
+      ][i].withAlpha(190);
       canvas.drawArc(
         rect.deflate(i * 5),
         _skinAngle + i * math.pi * 0.55,
@@ -86,13 +85,7 @@ final class SunComponent extends CircleComponent
       ..strokeWidth = 3
       ..strokeCap = StrokeCap.round
       ..color = const Color(0xFFFFF1A8).withAlpha(220);
-    canvas.drawArc(
-      glowRect,
-      _skinAngle,
-      math.pi * 1.25,
-      false,
-      _skinPaint,
-    );
+    canvas.drawArc(glowRect, _skinAngle, math.pi * 1.25, false, _skinPaint);
 
     _skinPaint
       ..style = PaintingStyle.fill

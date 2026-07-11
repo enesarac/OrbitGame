@@ -3,10 +3,7 @@ import 'package:flutter/material.dart';
 import '../game/orbital_gravity_game.dart';
 
 class MainMenuWidget extends StatelessWidget {
-  const MainMenuWidget({
-    required this.game,
-    super.key,
-  });
+  const MainMenuWidget({required this.game, super.key});
 
   final OrbitalGravityGame game;
 
@@ -59,10 +56,7 @@ class _OverlayShell extends StatelessWidget {
     return ColoredBox(
       color: const Color(0xCC0B0C10),
       child: Center(
-        child: SafeArea(
-          minimum: const EdgeInsets.all(24),
-          child: child,
-        ),
+        child: SafeArea(minimum: const EdgeInsets.all(24), child: child),
       ),
     );
   }
@@ -88,9 +82,7 @@ class _NeonButton extends StatelessWidget {
         style: FilledButton.styleFrom(
           backgroundColor: color,
           foregroundColor: const Color(0xFF0B0C10),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           textStyle: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w800,

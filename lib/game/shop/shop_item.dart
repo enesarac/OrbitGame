@@ -1,12 +1,6 @@
 import 'package:flutter/material.dart';
 
-enum ShopItemType {
-  ball,
-  theme,
-  skill,
-  trail,
-  sunSkin,
-}
+enum ShopItemType { ball, theme, skill, trail, sunSkin }
 
 final class ShopItem {
   const ShopItem({
@@ -147,10 +141,12 @@ abstract final class ShopCatalog {
   ];
 
   static ShopItem itemById(String id) {
-    return [...ballSkins, ...themes, ...skills, ...trails, ...sunSkins]
-        .firstWhere(
-      (item) => item.id == id,
-      orElse: () => ballSkins.first,
-    );
+    return [
+      ...ballSkins,
+      ...themes,
+      ...skills,
+      ...trails,
+      ...sunSkins,
+    ].firstWhere((item) => item.id == id, orElse: () => ballSkins.first);
   }
 }

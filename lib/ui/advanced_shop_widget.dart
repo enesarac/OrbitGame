@@ -1,13 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import '../game/ads/game_ads.dart';
 import '../game/orbital_gravity_game.dart';
 import '../game/shop/shop_item.dart';
 
 class AdvancedShopWidget extends StatefulWidget {
-  const AdvancedShopWidget({
-    required this.game,
-    super.key,
-  });
+  const AdvancedShopWidget({required this.game, super.key});
 
   final OrbitalGravityGame game;
 
@@ -17,6 +17,7 @@ class AdvancedShopWidget extends StatefulWidget {
 
 class _AdvancedShopWidgetState extends State<AdvancedShopWidget> {
   _ShopSection? _selectedSection;
+  Timer? _adReadinessTimer;
 
   static final List<_ShopSection> _sections = [
     _ShopSection(
@@ -57,6 +58,22 @@ class _AdvancedShopWidgetState extends State<AdvancedShopWidget> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _adReadinessTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) {
+        setState(() {});
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _adReadinessTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return ColoredBox(
       color: const Color(0xF20B0C10),
@@ -84,6 +101,24 @@ class _AdvancedShopWidgetState extends State<AdvancedShopWidget> {
                       onBack: _selectedSection == null
                           ? widget.game.closeShopToMainMenu
                           : () => setState(() => _selectedSection = null),
+                      onRewardedCoin: () async {
+                        final claimed = await widget.game.claimRewardedCoins();
+                        if (!context.mounted) {
+                          return;
+                        }
+
+                        setState(() {});
+                        if (!claimed) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Ad is not ready yet. Try again soon.',
+                              ),
+                            ),
+                          );
+                        }
+                      },
+                      rewardedCoinReady: widget.game.isRewardedCoinReady,
                     ),
                     const SizedBox(height: 12),
                     Expanded(
@@ -136,56 +171,92 @@ class _ShopHeader extends StatelessWidget {
     required this.title,
     required this.coins,
     required this.onBack,
+    required this.onRewardedCoin,
+    required this.rewardedCoinReady,
   });
 
   final String title;
   final int coins;
   final VoidCallback onBack;
+  final Future<void> Function() onRewardedCoin;
+  final bool rewardedCoinReady;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    return Column(
       children: [
-        Expanded(
-          child: Text(
-            title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFF66FCF1),
-              fontSize: 24,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 0,
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xFF66FCF1),
+                  fontSize: 24,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0,
+                ),
+              ),
             ),
-          ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF191D27),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0x55FFD700)),
+              ),
+              child: Text(
+                '$coins coins',
+                style: const TextStyle(
+                  color: Color(0xFFFFD700),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.white,
+                side: const BorderSide(color: Color(0x99FFFFFF)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              onPressed: onBack,
+              child: const Text('Back'),
+            ),
+          ],
         ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          decoration: BoxDecoration(
-            color: const Color(0xFF191D27),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: const Color(0x55FFD700)),
-          ),
-          child: Text(
-            '$coins coins',
-            style: const TextStyle(
-              color: Color(0xFFFFD700),
-              fontSize: 14,
-              fontWeight: FontWeight.w900,
+        const SizedBox(height: 10),
+        SizedBox(
+          width: double.infinity,
+          height: 42,
+          child: OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFFFFD700),
+              side: const BorderSide(color: Color(0x99FFD700)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              textStyle: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            onPressed: rewardedCoinReady ? onRewardedCoin : null,
+            icon: const Icon(Icons.play_circle_fill, size: 18),
+            label: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                rewardedCoinReady
+                    ? 'WATCH AD +${AdRewardValues.rewardedCoinAmount} COINS'
+                    : 'AD LOADING...',
+              ),
             ),
           ),
-        ),
-        const SizedBox(width: 8),
-        OutlinedButton(
-          style: OutlinedButton.styleFrom(
-            foregroundColor: Colors.white,
-            side: const BorderSide(color: Color(0x99FFFFFF)),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-          onPressed: onBack,
-          child: const Text('Back'),
         ),
       ],
     );
@@ -193,10 +264,7 @@ class _ShopHeader extends StatelessWidget {
 }
 
 class _SectionGrid extends StatelessWidget {
-  const _SectionGrid({
-    required this.sections,
-    required this.onSelect,
-  });
+  const _SectionGrid({required this.sections, required this.onSelect});
 
   final List<_ShopSection> sections;
   final ValueChanged<_ShopSection> onSelect;
@@ -230,10 +298,7 @@ class _SectionGrid extends StatelessWidget {
 }
 
 class _SectionCard extends StatelessWidget {
-  const _SectionCard({
-    required this.section,
-    required this.onTap,
-  });
+  const _SectionCard({required this.section, required this.onTap});
 
   final _ShopSection section;
   final VoidCallback onTap;
@@ -251,20 +316,14 @@ class _SectionCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: section.accent.withAlpha(130)),
             boxShadow: [
-              BoxShadow(
-                color: section.accent.withAlpha(35),
-                blurRadius: 18,
-              ),
+              BoxShadow(color: section.accent.withAlpha(35), blurRadius: 18),
             ],
           ),
           child: Padding(
             padding: const EdgeInsets.all(14),
             child: Row(
               children: [
-                _RoundIcon(
-                  color: section.accent,
-                  icon: section.icon,
-                ),
+                _RoundIcon(color: section.accent, icon: section.icon),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(
@@ -304,10 +363,7 @@ class _SectionCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                const Icon(
-                  Icons.chevron_right,
-                  color: Colors.white70,
-                ),
+                const Icon(Icons.chevron_right, color: Colors.white70),
               ],
             ),
           ),
@@ -387,9 +443,7 @@ class _ItemCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Expanded(
-              child: Center(
-                child: _PreviewToken(item: item),
-              ),
+              child: Center(child: _PreviewToken(item: item)),
             ),
             Text(
               item.name,
@@ -444,11 +498,7 @@ class _ItemCard extends StatelessWidget {
                     : null,
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    softWrap: false,
-                  ),
+                  child: Text(label, maxLines: 1, softWrap: false),
                 ),
               ),
             ),
@@ -505,22 +555,18 @@ class _PreviewToken extends StatelessWidget {
   Widget build(BuildContext context) {
     final icon = switch (item.type) {
       ShopItemType.skill => Icons.shield,
-      ShopItemType.theme => item.id == 'theme_cyber_grid'
-          ? Icons.grid_4x4
-          : item.id == 'theme_starry_space'
-              ? Icons.auto_awesome
-              : Icons.dark_mode,
+      ShopItemType.theme =>
+        item.id == 'theme_cyber_grid'
+            ? Icons.grid_4x4
+            : item.id == 'theme_starry_space'
+            ? Icons.auto_awesome
+            : Icons.dark_mode,
       ShopItemType.trail => Icons.auto_awesome,
       ShopItemType.sunSkin => Icons.radio_button_checked,
       ShopItemType.ball => Icons.circle,
     };
 
-    return _RoundIcon(
-      color: item.color,
-      icon: icon,
-      size: 54,
-      iconSize: 24,
-    );
+    return _RoundIcon(color: item.color, icon: icon, size: 54, iconSize: 24);
   }
 }
 
@@ -546,17 +592,13 @@ class _RoundIcon extends StatelessWidget {
         color: color,
         shape: BoxShape.circle,
         border: Border.all(color: const Color(0xDDFFFFFF), width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: color.withAlpha(150),
-            blurRadius: 14,
-          ),
-        ],
+        boxShadow: [BoxShadow(color: color.withAlpha(150), blurRadius: 14)],
       ),
       child: Icon(
         icon,
-        color:
-            color.computeLuminance() > 0.7 ? const Color(0xFF0B0C10) : Colors.white,
+        color: color.computeLuminance() > 0.7
+            ? const Color(0xFF0B0C10)
+            : Colors.white,
         size: iconSize,
       ),
     );

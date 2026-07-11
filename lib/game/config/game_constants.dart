@@ -30,8 +30,7 @@ abstract final class GameConstants {
   static const double asteroidEasySpeed = 80;
   static const double asteroidHardMaxSpeed = 180;
   static const double asteroidSpawnPadding = 32;
-  static const double asteroidCleanupDistance =
-      sunRadius + asteroidMaxRadius;
+  static const double asteroidCleanupDistance = sunRadius + asteroidMaxRadius;
   static const int maxAsteroidsOnScreen = 24;
   static const int asteroidTrailMaxPositions = 10;
   static const int dodgeScoreBonus = 5;

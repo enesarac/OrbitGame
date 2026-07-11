@@ -1,13 +1,18 @@
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 
+import 'game/analytics/game_telemetry.dart';
+import 'game/ads/game_ads.dart';
 import 'game/orbital_gravity_game.dart';
 import 'ui/advanced_shop_widget.dart';
 import 'ui/game_over_widget.dart';
 import 'ui/main_menu_widget.dart';
 import 'ui/shop_menu_widget.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await GameTelemetry.initialize();
+  await GameAds.instance.initialize();
   runApp(const OrbitalGravityApp());
 }
 

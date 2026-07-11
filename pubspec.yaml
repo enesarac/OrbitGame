@@ -34,6 +34,10 @@ dependencies:
   flame: ^1.35.1
   flame_audio: ^2.11.14
   shared_preferences: ^2.5.5
+  google_mobile_ads: ^9.0.0
+  firebase_core: ^4.11.0
+  firebase_analytics: ^12.4.3
+  firebase_crashlytics: ^5.2.4
   
 
 dev_dependencies:

@@ -14,13 +14,13 @@ final class AsteroidComponent extends CircleComponent with CollisionCallbacks {
     required double radius,
     required this.speed,
     this.onReachedTarget,
-  })  : _targetPosition = targetPosition.clone(),
-        super(
-          position: spawnPosition.clone(),
-          radius: radius,
-          anchor: Anchor.center,
-          paint: Paint()..color = GameConstants.asteroidColor,
-        ) {
+  }) : _targetPosition = targetPosition.clone(),
+       super(
+         position: spawnPosition.clone(),
+         radius: radius,
+         anchor: Anchor.center,
+         paint: Paint()..color = GameConstants.asteroidColor,
+       ) {
     final directionToTarget = _targetPosition - spawnPosition;
     _direction = directionToTarget.length2 == 0
         ? Vector2.zero()

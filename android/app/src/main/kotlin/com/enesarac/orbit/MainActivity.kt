@@ -1,4 +1,4 @@
-package com.example.oyun_prog
+package com.enesarac.orbit
 
 import io.flutter.embedding.android.FlutterActivity
 

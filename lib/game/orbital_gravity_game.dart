@@ -7,6 +7,8 @@ import 'package:flame/game.dart';
 import 'package:flame/text.dart';
 import 'package:flutter/material.dart';
 
+import 'ads/game_ads.dart';
+import 'analytics/game_telemetry.dart';
 import 'audio/game_audio.dart';
 import 'components/asteroid_component.dart';
 import 'components/coin_component.dart';
@@ -42,6 +44,8 @@ final class OrbitalGravityGame extends FlameGame
   double _dualOrbitAnnouncementTimer = 0;
   double _asteroidSpawnPauseTimer = 0;
   bool _isTouching = false;
+  bool _rewardedReviveUsed = false;
+  int _nextScoreTelemetryMilestone = 25;
 
   int score = 0;
   int totalCoins = 0;
@@ -71,6 +75,7 @@ final class OrbitalGravityGame extends FlameGame
   Future<void> onLoad() async {
     await super.onLoad();
     await GameAudio.preload();
+    GameAds.instance.loadAll();
     await loadGameState();
 
     _sun = SunComponent();
@@ -164,6 +169,7 @@ final class OrbitalGravityGame extends FlameGame
     overlays.remove('MainMenu');
     _resetGameState();
     isPlaying = true;
+    unawaited(GameTelemetry.logGameStart());
     resumeEngine();
   }
 
@@ -171,6 +177,7 @@ final class OrbitalGravityGame extends FlameGame
     overlays.remove('GameOver');
     _resetGameState();
     isPlaying = true;
+    unawaited(GameTelemetry.logGameStart());
     resumeEngine();
   }
 
@@ -195,7 +202,30 @@ final class OrbitalGravityGame extends FlameGame
     coin.markCollected();
     totalCoins += GameConstants.coinCollectValue;
     GameAudio.playCoinSound();
+    unawaited(
+      GameTelemetry.logCoinCollected(
+        amount: GameConstants.coinCollectValue,
+        totalCoins: totalCoins,
+      ),
+    );
     await saveGameState();
+  }
+
+  Future<bool> claimRewardedCoins() async {
+    final earnedReward = await GameAds.instance.showCoinReward();
+    if (!earnedReward) {
+      return false;
+    }
+
+    totalCoins += AdRewardValues.rewardedCoinAmount;
+    unawaited(
+      GameTelemetry.logRewardedCoinClaimed(
+        amount: AdRewardValues.rewardedCoinAmount,
+        totalCoins: totalCoins,
+      ),
+    );
+    await saveGameState();
+    return true;
   }
 
   bool isUnlocked(String itemId) => unlockedItems.contains(itemId);
@@ -206,8 +236,8 @@ final class OrbitalGravityGame extends FlameGame
     return switch (item.type) {
       ShopItemType.ball => selectedPlayerColor == itemId,
       ShopItemType.theme => selectedTheme == itemId,
-      ShopItemType.skill => itemId == ShopCatalog.energyShieldId &&
-          hasShieldPurchased,
+      ShopItemType.skill =>
+        itemId == ShopCatalog.energyShieldId && hasShieldPurchased,
       ShopItemType.trail => selectedTrail == itemId,
       ShopItemType.sunSkin => selectedSunSkin == itemId,
     };
@@ -259,6 +289,7 @@ final class OrbitalGravityGame extends FlameGame
         break;
     }
 
+    unawaited(GameTelemetry.logShopItemEquipped(item.id));
     await saveGameState();
   }
 
@@ -294,8 +325,60 @@ final class OrbitalGravityGame extends FlameGame
     unawaited(saveGameState());
     overlays.add('GameOver');
     GameAudio.playExplosionSound();
+    GameAds.instance.maybeShowGameOverInterstitial();
+    unawaited(
+      GameTelemetry.logGameOver(
+        score: score,
+        highScore: highScore,
+        elapsedSeconds: elapsedGameTime,
+        dualOrbitActive: isDualOrbitActive,
+      ),
+    );
     debugPrint('Game Over! Final score: $score');
     pauseEngine();
+  }
+
+  bool get canAttemptRewardedRevive {
+    return isGameOver && !_rewardedReviveUsed && GameAds.instance.isSupported;
+  }
+
+  bool get isRewardedReviveReady => GameAds.instance.isReviveReady;
+
+  bool get isRewardedCoinReady => GameAds.instance.isCoinRewardReady;
+
+  Future<bool> reviveFromRewardedAd() async {
+    if (!canAttemptRewardedRevive) {
+      return false;
+    }
+
+    final earnedReward = await GameAds.instance.showReviveReward();
+    if (!earnedReward || !isGameOver) {
+      return false;
+    }
+
+    _rewardedReviveUsed = true;
+    overlays.remove('GameOver');
+    for (final asteroid in children.whereType<AsteroidComponent>().toList()) {
+      asteroid.removeSafely();
+    }
+
+    isGameOver = false;
+    isPlaying = true;
+    _isTouching = false;
+    _currentRadius = GameConstants.maxOrbitRadius;
+    _targetRadius = GameConstants.maxOrbitRadius;
+    _invincibilityTimer = math
+        .max(
+          _invincibilityTimer,
+          GameConstants.dualOrbitGraceInvincibilityDuration,
+        )
+        .toDouble();
+    _spawnTimer.start();
+    _coinSpawnTimer.start();
+    _positionPlayersOnOrbit();
+    unawaited(GameTelemetry.logRewardedReviveUsed(score: score));
+    resumeEngine();
+    return true;
   }
 
   void _recenterComponents() {
@@ -396,17 +479,11 @@ final class OrbitalGravityGame extends FlameGame
       case 0:
         return Vector2(_random.nextDouble() * size.x, -offscreenOffset);
       case 1:
-        return Vector2(
-          _random.nextDouble() * size.x,
-          size.y + offscreenOffset,
-        );
+        return Vector2(_random.nextDouble() * size.x, size.y + offscreenOffset);
       case 2:
         return Vector2(-offscreenOffset, _random.nextDouble() * size.y);
       default:
-        return Vector2(
-          size.x + offscreenOffset,
-          _random.nextDouble() * size.y,
-        );
+        return Vector2(size.x + offscreenOffset, _random.nextDouble() * size.y);
     }
   }
 
@@ -433,7 +510,15 @@ final class OrbitalGravityGame extends FlameGame
     score += amount;
     _scoreText.updateScore(score);
     _syncSpawnInterval();
+    _logScoreMilestones();
     _engageDualOrbitIfNeeded();
+  }
+
+  void _logScoreMilestones() {
+    while (score >= _nextScoreTelemetryMilestone) {
+      unawaited(GameTelemetry.logScoreReached(_nextScoreTelemetryMilestone));
+      _nextScoreTelemetryMilestone += 25;
+    }
   }
 
   void _applyIdleGravity(double dt) {
@@ -441,10 +526,9 @@ final class OrbitalGravityGame extends FlameGame
       return;
     }
 
-    _targetRadius = math.max(
-      0,
-      _targetRadius - _currentIdleGravityPullSpeed * dt,
-    ).toDouble();
+    _targetRadius = math
+        .max(0, _targetRadius - _currentIdleGravityPullSpeed * dt)
+        .toDouble();
   }
 
   void _checkSunCollision() {
@@ -496,11 +580,13 @@ final class OrbitalGravityGame extends FlameGame
       return score.toDouble();
     }
 
-    return math.max(
-      0,
-      (score - GameConstants.dualOrbitScoreThreshold) *
-          GameConstants.dualOrbitDifficultyScale,
-    ).toDouble();
+    return math
+        .max(
+          0,
+          (score - GameConstants.dualOrbitScoreThreshold) *
+              GameConstants.dualOrbitDifficultyScale,
+        )
+        .toDouble();
   }
 
   double get _currentIdleGravityPullSpeed {
@@ -526,12 +612,14 @@ final class OrbitalGravityGame extends FlameGame
     score = 0;
     isGameOver = false;
     isDualOrbitActive = false;
+    _rewardedReviveUsed = false;
     _shieldActive = hasShieldPurchased;
     _invincibilityTimer = 0;
     _dualOrbitAnnouncementTimer = 0;
     _asteroidSpawnPauseTimer = 0;
     elapsedGameTime = 0;
     _scoreTimer = 0;
+    _nextScoreTelemetryMilestone = 25;
     _angle = 0;
     _isTouching = false;
     _currentRadius = GameConstants.maxOrbitRadius;
@@ -611,9 +699,7 @@ final class OrbitalGravityGame extends FlameGame
           color: Color(0xFF66FCF1),
           fontSize: 24,
           fontWeight: FontWeight.w900,
-          shadows: [
-            Shadow(color: Color(0xFF66FCF1), blurRadius: 20),
-          ],
+          shadows: [Shadow(color: Color(0xFF66FCF1), blurRadius: 20)],
         ),
       ),
     );
@@ -642,8 +728,9 @@ final class OrbitalGravityGame extends FlameGame
     _syncSpawnInterval();
 
     if (_asteroidSpawnPauseTimer > 0) {
-      _asteroidSpawnPauseTimer =
-          math.max(0, _asteroidSpawnPauseTimer - dt).toDouble();
+      _asteroidSpawnPauseTimer = math
+          .max(0, _asteroidSpawnPauseTimer - dt)
+          .toDouble();
 
       if (_asteroidSpawnPauseTimer == 0) {
         _spawnTimer.start();
@@ -706,10 +793,18 @@ final class OrbitalGravityGame extends FlameGame
 
       const spacing = 32.0;
       for (var x = 0.0; x <= size.x; x += spacing) {
-        canvas.drawLine(Offset(x, 0), Offset(x, size.y), _backgroundDetailPaint);
+        canvas.drawLine(
+          Offset(x, 0),
+          Offset(x, size.y),
+          _backgroundDetailPaint,
+        );
       }
       for (var y = 0.0; y <= size.y; y += spacing) {
-        canvas.drawLine(Offset(0, y), Offset(size.x, y), _backgroundDetailPaint);
+        canvas.drawLine(
+          Offset(0, y),
+          Offset(size.x, y),
+          _backgroundDetailPaint,
+        );
       }
     }
   }

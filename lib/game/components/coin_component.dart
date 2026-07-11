@@ -10,14 +10,13 @@ import 'player_component.dart';
 
 final class CoinComponent extends CircleComponent
     with CollisionCallbacks, HasGameReference<OrbitalGravityGame> {
-  CoinComponent({
-    required Vector2 position,
-  }) : super(
-          position: position,
-          radius: GameConstants.coinRadius,
-          anchor: Anchor.center,
-          paint: Paint()..color = GameConstants.coinColor,
-        );
+  CoinComponent({required Vector2 position})
+    : super(
+        position: position,
+        radius: GameConstants.coinRadius,
+        anchor: Anchor.center,
+        paint: Paint()..color = GameConstants.coinColor,
+      );
 
   bool _isCollected = false;
   double _opacity = 1;
@@ -40,8 +39,8 @@ final class CoinComponent extends CircleComponent
     super.update(dt);
 
     angle += GameConstants.coinSpinSpeed * dt;
-    _blinkTime = (_blinkTime + dt * GameConstants.coinBlinkSpeed) %
-        (math.pi * 2);
+    _blinkTime =
+        (_blinkTime + dt * GameConstants.coinBlinkSpeed) % (math.pi * 2);
 
     if (_isCollected) {
       _opacity -= GameConstants.coinFadeSpeed * dt;
@@ -55,7 +54,8 @@ final class CoinComponent extends CircleComponent
   @override
   void render(Canvas canvas) {
     final blink = (math.sin(_blinkTime) + 1) * 0.5;
-    final blinkAlpha = GameConstants.coinBlinkMinAlpha +
+    final blinkAlpha =
+        GameConstants.coinBlinkMinAlpha +
         blink * (255 - GameConstants.coinBlinkMinAlpha);
     paint.color = GameConstants.coinColor.withAlpha(
       (blinkAlpha * _opacity).round(),

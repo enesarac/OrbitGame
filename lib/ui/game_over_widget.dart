@@ -1,17 +1,42 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../game/orbital_gravity_game.dart';
 
-class GameOverWidget extends StatelessWidget {
-  const GameOverWidget({
-    required this.game,
-    super.key,
-  });
+class GameOverWidget extends StatefulWidget {
+  const GameOverWidget({required this.game, super.key});
 
   final OrbitalGravityGame game;
 
   @override
+  State<GameOverWidget> createState() => _GameOverWidgetState();
+}
+
+class _GameOverWidgetState extends State<GameOverWidget> {
+  Timer? _adReadinessTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _adReadinessTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) {
+        setState(() {});
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _adReadinessTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final game = widget.game;
+    final reviveReady = game.isRewardedReviveReady;
+
     return ColoredBox(
       color: const Color(0xDD0B0C10),
       child: Center(
@@ -55,6 +80,47 @@ class GameOverWidget extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 34),
+              if (game.canAttemptRewardedRevive) ...[
+                SizedBox(
+                  width: 220,
+                  height: 54,
+                  child: FilledButton(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF66FCF1),
+                      foregroundColor: const Color(0xFF0B0C10),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      textStyle: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                    onPressed: reviveReady
+                        ? () async {
+                            final revived = await game.reviveFromRewardedAd();
+                            if (!revived && context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Ad is not ready yet. Try again soon.',
+                                  ),
+                                ),
+                              );
+                            }
+                          }
+                        : null,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        reviveReady ? 'WATCH AD & CONTINUE' : 'AD LOADING...',
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+              ],
               SizedBox(
                 width: 220,
                 height: 54,

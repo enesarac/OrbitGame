@@ -4,10 +4,7 @@ import '../game/orbital_gravity_game.dart';
 import '../game/shop/shop_item.dart';
 
 class ShopMenuWidget extends StatefulWidget {
-  const ShopMenuWidget({
-    required this.game,
-    super.key,
-  });
+  const ShopMenuWidget({required this.game, super.key});
 
   final OrbitalGravityGame game;
 
@@ -33,10 +30,7 @@ class _ShopMenuWidgetState extends State<ShopMenuWidget> {
                   border: Border.all(color: const Color(0x8845A29E)),
                   borderRadius: BorderRadius.circular(8),
                   boxShadow: const [
-                    BoxShadow(
-                      color: Color(0xAA000000),
-                      blurRadius: 28,
-                    ),
+                    BoxShadow(color: Color(0xAA000000), blurRadius: 28),
                   ],
                 ),
                 child: Padding(
@@ -95,10 +89,7 @@ class _ShopMenuWidgetState extends State<ShopMenuWidget> {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({
-    required this.coins,
-    required this.onBack,
-  });
+  const _Header({required this.coins, required this.onBack});
 
   final int coins;
   final VoidCallback onBack;
@@ -161,11 +152,7 @@ class _ItemList extends StatelessWidget {
       separatorBuilder: (context, index) => const SizedBox(height: 10),
       itemBuilder: (context, index) {
         final item = items[index];
-        return _ShopItemTile(
-          item: item,
-          game: game,
-          onChanged: onChanged,
-        );
+        return _ShopItemTile(item: item, game: game, onChanged: onChanged);
       },
     );
   }
@@ -204,9 +191,7 @@ class _ShopItemTile extends StatelessWidget {
           children: [
             _ItemSwatch(item: item),
             const SizedBox(width: 12),
-            Expanded(
-              child: _ItemText(item: item),
-            ),
+            Expanded(child: _ItemText(item: item)),
             const SizedBox(width: 12),
             SizedBox(
               width: 104,
@@ -222,8 +207,9 @@ class _ShopItemTile extends StatelessWidget {
                   disabledBackgroundColor: isEquipped
                       ? const Color(0xFF1E3A3F)
                       : const Color(0xFF2A2F3B),
-                  disabledForegroundColor:
-                      isEquipped ? const Color(0xFF66FCF1) : Colors.white54,
+                  disabledForegroundColor: isEquipped
+                      ? const Color(0xFF66FCF1)
+                      : Colors.white54,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -241,11 +227,7 @@ class _ShopItemTile extends StatelessWidget {
                       },
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    softWrap: false,
-                  ),
+                  child: Text(label, maxLines: 1, softWrap: false),
                 ),
               ),
             ),
@@ -255,10 +237,7 @@ class _ShopItemTile extends StatelessWidget {
     );
   }
 
-  String _buttonLabel({
-    required bool isUnlocked,
-    required bool isEquipped,
-  }) {
+  String _buttonLabel({required bool isUnlocked, required bool isEquipped}) {
     if (isEquipped) {
       return 'ACTIVE';
     }
@@ -270,10 +249,7 @@ class _ShopItemTile extends StatelessWidget {
     return 'BUY';
   }
 
-  Color _buttonColor({
-    required ShopItem item,
-    required bool isUnlocked,
-  }) {
+  Color _buttonColor({required ShopItem item, required bool isUnlocked}) {
     if (isUnlocked) {
       return const Color(0xFF257179);
     }
@@ -299,29 +275,18 @@ class _ItemSwatch extends StatelessWidget {
         shape: BoxShape.circle,
         border: Border.all(color: const Color(0xDDFFFFFF), width: 1.5),
         boxShadow: [
-          BoxShadow(
-            color: item.color.withAlpha(150),
-            blurRadius: 14,
-          ),
+          BoxShadow(color: item.color.withAlpha(150), blurRadius: 14),
         ],
       ),
       child: item.id == 'theme_starry_space'
           ? const Center(
-              child: Icon(
-                Icons.auto_awesome,
-                color: Colors.white,
-                size: 17,
-              ),
+              child: Icon(Icons.auto_awesome, color: Colors.white, size: 17),
             )
           : item.id == 'theme_cyber_grid'
-              ? const Center(
-                  child: Icon(
-                    Icons.grid_4x4,
-                    color: Color(0xFF66FCF1),
-                    size: 17,
-                  ),
-                )
-              : null,
+          ? const Center(
+              child: Icon(Icons.grid_4x4, color: Color(0xFF66FCF1), size: 17),
+            )
+          : null,
     );
   }
 }

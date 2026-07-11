@@ -10,11 +10,11 @@ import 'asteroid_component.dart';
 final class PlayerComponent extends CircleComponent
     with CollisionCallbacks, HasGameReference<OrbitalGravityGame> {
   PlayerComponent()
-      : super(
-          radius: GameConstants.playerRadius,
-          anchor: Anchor.center,
-          paint: Paint()..color = GameConstants.playerColor,
-        );
+    : super(
+        radius: GameConstants.playerRadius,
+        anchor: Anchor.center,
+        paint: Paint()..color = GameConstants.playerColor,
+      );
 
   static const int _maxTrailPositions = 6;
   final List<Vector2> _trailPositions = [];
@@ -145,13 +145,7 @@ final class PlayerComponent extends CircleComponent
       return;
     }
 
-    _shieldPaint.color = Colors.white.withAlpha(
-      game.isInvincible ? 130 : 230,
-    );
-    canvas.drawCircle(
-      Offset(radius, radius),
-      radius + 5,
-      _shieldPaint,
-    );
+    _shieldPaint.color = Colors.white.withAlpha(game.isInvincible ? 130 : 230);
+    canvas.drawCircle(Offset(radius, radius), radius + 5, _shieldPaint);
   }
 }
